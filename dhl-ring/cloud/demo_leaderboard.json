@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "event": "electronica-2026",
+  "updated_at": "2026-11-10T09:00:00Z",
+  "count": 6,
+  "leaderboard": [
+    { "id": "demo-0001", "rank": 1, "name": "L. ENGLER", "team": "Alternetivo", "best_lap_ms": 52104, "best_lap": "0:52.104" },
+    { "id": "demo-0002", "rank": 2, "name": "T. BOHUNEK", "team": "DBAG", "best_lap_ms": 53916, "best_lap": "0:53.916" },
+    { "id": "demo-0003", "rank": 3, "name": "A. SVOBODA", "team": "Siemens", "best_lap_ms": 54281, "best_lap": "0:54.281" },
+    { "id": "demo-0004", "rank": 4, "name": "D. PECL", "team": "Vodafone", "best_lap_ms": 55530, "best_lap": "0:55.530" },
+    { "id": "demo-0005", "rank": 5, "name": "M. WEBER", "team": "Bosch", "best_lap_ms": 56742, "best_lap": "0:56.742" },
+    { "id": "demo-0006", "rank": 6, "name": "P. NOVAK", "team": "SAP", "best_lap_ms": 58119, "best_lap": "0:58.119" }
+  ]
+}

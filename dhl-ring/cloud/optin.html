@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lap updates — RoarFun</title>
+<style>
+  :root{
+    --bg:#08090B; --panel:#12161d; --line:rgba(255,255,255,.12);
+    --txt:#EEF1F4; --dim:#8C949E; --accent:#E8342A; --ok:#3FB56B;
+    --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
+    font-family:var(--sans);display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);
+    border-radius:16px;padding:26px}
+  .eyebrow{font-family:var(--cond);font-size:14px;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 6px}
+  h1{font-family:var(--cond);font-size:32px;text-transform:uppercase;margin:0 0 4px;line-height:1}
+  .who{color:var(--dim);font-size:15px;margin:0 0 22px}
+  label{display:block;font-size:14px;color:var(--dim);margin:0 0 6px}
+  input[type=tel]{width:100%;padding:14px;font-size:17px;border-radius:10px;
+    border:1px solid var(--line);background:#0c0f14;color:var(--txt)}
+  input[type=tel]:focus{outline:none;border-color:var(--accent)}
+  .hint{font-size:13px;color:var(--dim);margin:8px 0 18px}
+  .consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;
+    color:var(--dim);line-height:1.45;margin-bottom:20px}
+  .consent input{margin-top:3px;width:18px;height:18px;flex:none}
+  button{width:100%;padding:15px;font-size:16px;font-weight:600;border:0;border-radius:10px;
+    background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .msg{margin-top:16px;font-size:15px;line-height:1.5}
+  .msg.ok{color:var(--ok)} .msg.err{color:#ff8b84}
+  .done{text-align:center;padding:10px 0}
+  .done h2{font-family:var(--cond);font-size:26px;text-transform:uppercase;margin:0 0 8px}
+  .done p{color:var(--dim);font-size:15px;line-height:1.5;margin:0}
+  .fine{margin-top:22px;font-size:12px;color:#5B626B;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <p class="eyebrow">Lap leaderboard</p>
+  <h1>Get position updates</h1>
+  <p class="who" id="who">Loading your result…</p>
+
+  <label for="phone">Mobile number</label>
+  <input type="tel" id="phone" placeholder="+421 900 123 456" autocomplete="tel">
+  <p class="hint">Include the country code, e.g. +49 for Germany.</p>
+
+  <div class="consent">
+    <input type="checkbox" id="consent">
+    <label for="consent" style="margin:0;color:inherit">
+      Send me an SMS when my leaderboard position changes during DHL The Ring.
+      I can stop at any time by replying STOP.
+    </label>
+  </div>
+
+  <button id="go" disabled>Sign me up</button>
+  <div class="msg" id="msg"></div>
+
+  <p class="fine">
+    Your number is used only to send you position updates during this event and is
+    deleted afterwards. It is never shown on the public leaderboard.
+  </p>
+</div>
+
+<script>
+const id = new URLSearchParams(location.search).get("id");
+const phoneEl = document.getElementById("phone");
+const consentEl = document.getElementById("consent");
+const goEl = document.getElementById("go");
+const msgEl = document.getElementById("msg");
+
+function refreshButton(){
+  goEl.disabled = !(consentEl.checked && phoneEl.value.replace(/\s/g,"").length >= 8);
+}
+phoneEl.addEventListener("input", refreshButton);
+consentEl.addEventListener("change", refreshButton);
+
+// Show the driver their own row, so it is obvious the code was scanned correctly.
+(async () => {
+  if (!id){ document.getElementById("who").textContent = "No driver code in this link."; return; }
+  try{
+    const data = await (await fetch("/v1/leaderboard.json")).json();
+    const me = data.leaderboard.find(e => e.id === id);
+    document.getElementById("who").textContent = me
+      ? `${me.name} — currently #${me.rank} of ${data.count}, best lap ${me.best_lap}`
+      : "Driver code not on the board yet.";
+  } catch (e){ document.getElementById("who").textContent = ""; }
+})();
+
+goEl.onclick = async () => {
+  goEl.disabled = true;
+  msgEl.className = "msg"; msgEl.textContent = "Sending…";
+  try{
+    const response = await fetch("/api/optin", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ id, phone: phoneEl.value, consent: consentEl.checked })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || "Could not sign up");
+    document.getElementById("card").innerHTML =
+      '<div class="done"><h2>You\'re in</h2><p>' +
+      (result.dry_run
+        ? "Test mode: no real SMS was sent, but the confirmation was recorded."
+        : "Check your phone — a confirmation message is on its way.") +
+      '</p></div>';
+  } catch (err){
+    msgEl.className = "msg err"; msgEl.textContent = err.message;
+    goEl.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

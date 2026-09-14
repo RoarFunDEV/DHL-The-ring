@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sim assistant — RoarFun</title>
+<style>
+  :root{
+    --bg:#0B0E13; --panel:#151B24; --panel2:#1C2530; --line:#2A3542; --line2:#3A4756;
+    --txt:#EEF2F6; --dim:#8B96A5; --dimmer:#5E6979;
+    --accent:#E8342A; --ok:#3FB56B; --warn:#E0A52E;
+    --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--txt);
+    font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior:none}
+
+  /* ---- chrome ---- */
+  header{display:flex;align-items:center;gap:12px;padding:12px 16px;
+    border-bottom:1px solid var(--line);background:var(--panel)}
+  .rig{font-family:var(--cond);font-size:20px;text-transform:uppercase;letter-spacing:.06em}
+  .net{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+  .net .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+  .net.off .dot{background:var(--accent)}
+  .net.off{color:#ff9d97}
+
+  .steps{display:flex;gap:6px;padding:12px 16px 0}
+  .steps div{flex:1;height:4px;border-radius:2px;background:var(--line)}
+  .steps div.on{background:var(--accent)}
+  .steps div.done{background:var(--ok)}
+
+  main{padding:16px;max-width:760px;margin:0 auto;padding-bottom:110px}
+  h1{font-family:var(--cond);font-size:30px;text-transform:uppercase;margin:14px 0 4px;
+    line-height:1;letter-spacing:.02em}
+  .lead{color:var(--dim);font-size:15px;margin:0 0 18px}
+
+  label{display:block;font-size:13px;color:var(--dim);margin:0 0 6px}
+  input,select{width:100%;padding:15px;font-size:18px;border-radius:11px;
+    border:1px solid var(--line2);background:var(--panel);color:var(--txt);font-family:inherit}
+  input:focus,select:focus{outline:none;border-color:var(--accent);background:var(--panel2)}
+  input::placeholder{color:var(--dimmer)}
+  .field{margin-bottom:14px}
+  .row{display:flex;gap:10px}
+  .row .field{flex:1}
+  .err{color:#ff9d97;font-size:13px;margin-top:6px;display:none}
+  .field.bad input{border-color:var(--accent)}
+  .field.bad .err{display:block}
+
+  button{font-family:inherit;font-size:17px;font-weight:600;padding:16px;border-radius:11px;
+    border:1px solid var(--line2);background:var(--panel2);color:var(--txt);cursor:pointer;width:100%}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.ghost{background:none}
+  button:disabled{opacity:.4}
+  .bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px;
+    background:linear-gradient(to top,var(--bg) 70%,transparent);
+    display:flex;gap:10px;max-width:760px;margin:0 auto}
+  .bar button{flex:1}
+  .bar button.back{flex:0 0 32%}
+
+  /* ---- search results ---- */
+  .hit{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);
+    border-radius:12px;background:var(--panel);margin-bottom:9px;cursor:pointer}
+  .hit:active{background:var(--panel2)}
+  .hit .who{flex:1;min-width:0}
+  .hit .nm{font-size:18px;font-weight:600}
+  .hit .co{font-size:13px;color:var(--dim);margin-top:2px}
+  .hit .tm{font-family:var(--mono);font-size:16px;text-align:right;white-space:nowrap}
+  .hit .tm small{display:block;color:var(--dim);font-size:11px;font-family:inherit}
+  .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:5px;
+    background:rgba(63,181,107,.16);color:var(--ok);margin-left:6px}
+  .none{color:var(--dimmer);text-align:center;padding:28px 10px}
+
+  /* ---- time entry ---- */
+  .whobar{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin-bottom:18px;display:flex;align-items:center;gap:12px}
+  .whobar .nm{font-size:19px;font-weight:600}
+  .whobar .co{font-size:13px;color:var(--dim)}
+  .whobar .pb{margin-left:auto;text-align:right;font-family:var(--mono);font-size:15px}
+  .whobar .pb small{display:block;font-family:inherit;font-size:11px;color:var(--dim)}
+  .timerow{display:flex;gap:10px;align-items:flex-end}
+  .timerow .field{flex:1;margin-bottom:0}
+  .timerow input{font-family:var(--mono);font-size:30px;text-align:center;padding:16px 6px}
+  .timerow .sep{font-family:var(--mono);font-size:26px;color:var(--dim);padding-bottom:20px}
+  .preview{margin-top:14px;font-family:var(--mono);font-size:19px;color:var(--dim);text-align:center}
+  .preview b{color:var(--txt)}
+
+  /* ---- result ---- */
+  .result{text-align:center;padding:22px 0}
+  .result .big{font-family:var(--cond);font-size:60px;line-height:1;margin:6px 0}
+  .result .lap{font-family:var(--mono);font-size:26px;color:var(--warn)}
+  .result .note{color:var(--dim);margin-top:10px;font-size:15px}
+  .result.improved .big{color:var(--ok)}
+
+  .consent{display:flex;gap:12px;align-items:flex-start;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:14px;margin:16px 0}
+  .consent input{width:26px;height:26px;flex:none;margin-top:1px}
+  .consent span{font-size:14px;color:var(--dim);line-height:1.45}
+  .handover{background:rgba(224,165,46,.1);border:1px solid rgba(224,165,46,.35);
+    color:var(--warn);border-radius:11px;padding:12px 14px;font-size:14px;margin-bottom:16px}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:50;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:10px;
+    padding:12px 18px;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none}
+  .toast.on{display:block}
+  .toast.bad{border-color:var(--accent);color:#ff9d97}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="rig" id="rig">Rig 1</span>
+  <span class="net" id="net"><span class="dot"></span><span id="net-text">Connected</span></span>
+</header>
+<div class="steps"><div id="s1"></div><div id="s2"></div><div id="s3"></div></div>
+
+<main>
+  <!-- STEP 1 ------------------------------------------------------------ -->
+  <section id="step1">
+    <h1>Who is driving?</h1>
+    <p class="lead">Search first — if they have raced before, use their existing record so their time stays on one entry.</p>
+    <div class="field">
+      <input type="search" id="q" placeholder="Name or surname…" autocomplete="off" enterkeyhint="search">
+    </div>
+    <div id="hits"></div>
+    <button class="ghost" id="new-visitor" style="margin-top:8px">+ New visitor</button>
+  </section>
+
+  <!-- STEP 1b : registration ------------------------------------------- -->
+  <section id="step1b" hidden>
+    <h1>New visitor</h1>
+    <p class="lead">Full name is shown on the leaderboard for this event.</p>
+    <div class="row">
+      <div class="field" id="f-first">
+        <label for="first">First name</label>
+        <input id="first" autocomplete="off" autocapitalize="words">
+        <div class="err">Enter a first name</div>
+      </div>
+      <div class="field" id="f-sur">
+        <label for="sur">Surname</label>
+        <input id="sur" autocomplete="off" autocapitalize="words" placeholder="Pecl">
+        <div class="err">Enter a surname</div>
+      </div>
+    </div>
+    <div class="field" id="f-co">
+      <label for="co">Country</label>
+      <select id="co"></select>
+      <div class="err">Choose a country</div>
+    </div>
+    <div id="dupwarn"></div>
+  </section>
+
+  <!-- STEP 2 : lap time -------------------------------------------------- -->
+  <section id="step2" hidden>
+    <h1>Lap time</h1>
+    <div class="whobar">
+      <div><div class="nm" id="t-name"></div><div class="co" id="t-co"></div></div>
+      <div class="pb" id="t-pb"></div>
+    </div>
+    <div class="timerow">
+      <div class="field"><label>Min</label><input id="mm" inputmode="numeric" maxlength="2" placeholder="0"></div>
+      <div class="sep">:</div>
+      <div class="field"><label>Sec</label><input id="ss" inputmode="numeric" maxlength="2" placeholder="00"></div>
+      <div class="sep">.</div>
+      <div class="field"><label>Thousandths</label><input id="ms" inputmode="numeric" maxlength="3" placeholder="000"></div>
+    </div>
+    <div class="err" id="time-err" style="text-align:center"></div>
+    <div class="preview" id="t-preview">— : — . —</div>
+  </section>
+
+  <!-- STEP 3 : result + opt-in ------------------------------------------ -->
+  <section id="step3" hidden>
+    <div class="result" id="result">
+      <div class="lead" id="r-head"></div>
+      <div class="big" id="r-rank"></div>
+      <div class="lap" id="r-lap"></div>
+      <div class="note" id="r-note"></div>
+    </div>
+    <div id="optin-block">
+      <div class="handover">Hand the tablet to the visitor for this step.</div>
+      <div class="row">
+        <div class="field" style="flex:0 0 40%">
+          <label for="cc">Country code</label>
+          <select id="cc"></select>
+        </div>
+        <div class="field" id="f-phone">
+          <label for="phone">Mobile number</label>
+          <input id="phone" inputmode="tel" placeholder="900 123 456" autocomplete="tel">
+          <div class="err" id="phone-err">Check the number</div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="ch">Send updates by</label>
+        <select id="ch"><option value="whatsapp">WhatsApp</option><option value="sms">SMS</option></select>
+      </div>
+      <label class="consent">
+        <input type="checkbox" id="consent">
+        <span>Message me when my leaderboard position changes during electronica 2026.
+          My number is used only for this and is never shown publicly. I can stop at any
+          time using the link in the message.</span>
+      </label>
+    </div>
+  </section>
+</main>
+
+<div class="bar" id="bar"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ------------------------------------------------------------------ state */
+const HUB = "";                       // same origin as the hub
+const RIG = localStorage.getItem("rf_rig") || "1";
+document.getElementById("rig").textContent = "Rig " + RIG;
+
+let step = 1;
+let visitor = null;                   // {id, display, company, best_lap, ...}
+let lastRun = null;
+let queue = JSON.parse(localStorage.getItem("rf_queue") || "[]");
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function toast(text, bad){
+  const t = $("toast");
+  t.textContent = text; t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 2600);
+}
+
+/* ------------------------------------------------------- offline queueing
+   The tablet must never lose a lap because the WiFi blinked. Anything that
+   fails to send is kept locally, retried, and shown in the header. */
+async function post(path, body){
+  const response = await fetch(HUB + path, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || ("Error " + response.status));
+  return data;
+}
+
+function enqueue(path, body){
+  queue.push({ path, body, at: Date.now() });
+  localStorage.setItem("rf_queue", JSON.stringify(queue));
+  showNet();
+}
+
+async function drainQueue(){
+  if (!queue.length) return;
+  const pending = [...queue];
+  for (const item of pending){
+    try {
+      await post(item.path, item.body);
+      queue = queue.filter(q => q !== item);
+      localStorage.setItem("rf_queue", JSON.stringify(queue));
+    } catch (e){ break; }        // still offline: stop and try again later
+  }
+  showNet();
+}
+
+let online = true;
+function showNet(){
+  const el = $("net");
+  if (!online){
+    el.className = "net off";
+    $("net-text").textContent = queue.length ? queue.length + " waiting" : "Offline";
+  } else if (queue.length){
+    el.className = "net off";
+    $("net-text").textContent = "Sending " + queue.length + "…";
+  } else {
+    el.className = "net";
+    $("net-text").textContent = "Connected";
+  }
+}
+
+setInterval(async () => {
+  try {
+    const r = await fetch(HUB + "/healthz", {cache:"no-store"});
+    online = r.ok;
+  } catch(e){ online = false; }
+  showNet();
+  if (online) drainQueue();
+}, 4000);
+
+/* ------------------------------------------------------------- navigation */
+function setStep(n){
+  step = n;
+  for (const [id, on] of [["step1", n===1], ["step1b", n===1.5],
+                          ["step2", n===2], ["step3", n===3]]){
+    $(id).hidden = !on;
+  }
+  $("s1").className = n <= 1.5 ? "on" : "done";
+  $("s2").className = n === 2 ? "on" : (n > 2 ? "done" : "");
+  $("s3").className = n === 3 ? "on" : "";
+  renderBar();
+  window.scrollTo(0, 0);
+}
+
+function renderBar(){
+  const bar = $("bar");
+  if (step === 1){ bar.innerHTML = ""; return; }
+  if (step === 1.5){
+    bar.innerHTML = '<button class="back" id="b-back">Back</button>' +
+                    '<button class="primary" id="b-save">Register &amp; continue</button>';
+    $("b-back").onclick = () => setStep(1);
+    $("b-save").onclick = saveVisitor;
+  }
+  if (step === 2){
+    bar.innerHTML = '<button class="back" id="b-back">Back</button>' +
+                    '<button class="primary" id="b-time">Save time</button>';
+    $("b-back").onclick = () => setStep(1);
+    $("b-time").onclick = saveTime;
+  }
+  if (step === 3){
+    bar.innerHTML = '<button class="back" id="b-skip">No thanks</button>' +
+                    '<button class="primary" id="b-opt">Sign up</button>';
+    $("b-skip").onclick = finish;
+    $("b-opt").onclick = saveConsent;
+  }
+}
+
+/* ------------------------------------------------------------ step 1 search */
+let searchTimer = null;
+$("q").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 180);
+});
+
+async function runSearch(){
+  const q = $("q").value.trim();
+  try {
+    const data = await (await fetch(HUB + "/api/search?q=" + encodeURIComponent(q))).json();
+    const hits = data.results || [];
+    $("hits").innerHTML = hits.length ? hits.map(h =>
+      '<div class="hit" data-id="' + esc(h.id) + '">' +
+        '<div class="who"><div class="nm">' + esc(h.first_name) + ' ' + esc(h.surname) +
+          (h.opted_in ? '<span class="tag">opted in</span>' : '') + '</div>' +
+          '<div class="co">' + (esc(h.company) || '—') + '</div></div>' +
+        '<div class="tm">' + (h.best_lap ? esc(h.best_lap) : '—') +
+          '<small>' + (h.rank ? 'P' + h.rank + ' today' : 'no time today') + '</small></div>' +
+      '</div>').join("")
+      : '<div class="none">' + (q ? "No match — register as new." : "Start typing to search.") + '</div>';
+
+    document.querySelectorAll(".hit").forEach(el => el.onclick = () => {
+      const hit = hits.find(h => h.id === el.dataset.id);
+      visitor = hit; openTime();
+    });
+  } catch (e){ toast("Search unavailable", true); }
+}
+
+$("new-visitor").onclick = () => {
+  const typed = $("q").value.trim();
+  $("first").value = typed.split(" ")[0] || "";
+  $("sur").value = ""; $("co").value = "";
+  $("dupwarn").innerHTML = "";
+  setStep(1.5);
+  setTimeout(() => $("first").focus(), 120);
+};
+
+/* --------------------------------------------------------- step 1b register */
+function bad(id, isBad){ $(id).classList.toggle("bad", isBad); return !isBad; }
+
+async function saveVisitor(){
+  const first = $("first").value.trim();
+  const sur = $("sur").value.trim().replace(/\./g, "");
+  const co = $("co").value.trim();
+  let ok = true;
+  ok = bad("f-first", first.length < 1) && ok;
+  ok = bad("f-sur", sur.length < 1) && ok;
+  ok = bad("f-co", co.length < 1) && ok;
+  if (!ok){ toast("Check the highlighted fields", true); return; }
+
+  try {
+    const data = await post("/api/visitors",
+      { first_name: first, surname: sur, company: co, actor: "rig" + RIG });
+    if (data.possible_duplicates && data.possible_duplicates.length){
+      toast("Note: a matching name already exists");
+    }
+    visitor = { id: data.id, first_name: first, surname: sur, company: co,
+                display: data.display, best_lap: null, rank: null };
+    openTime();
+  } catch (e){ toast(e.message, true); }
+}
+
+/* ------------------------------------------------------------ step 2 time */
+function openTime(){
+  $("t-name").textContent = visitor.first_name + " " + visitor.surname;
+  $("t-co").textContent = visitor.company || "—";
+  $("t-pb").innerHTML = visitor.best_lap
+    ? esc(visitor.best_lap) + "<small>best today</small>"
+    : "—<small>first run</small>";
+  $("mm").value = ""; $("ss").value = ""; $("ms").value = "";
+  $("t-preview").innerHTML = "— : — . —";
+  $("time-err").style.display = "none";
+  setStep(2);
+  setTimeout(() => $("mm").focus(), 150);
+}
+
+function typedMs(){
+  const m = parseInt($("mm").value || "0", 10);
+  const s = parseInt($("ss").value || "-1", 10);
+  const t = $("ms").value === "" ? -1 : parseInt($("ms").value.padEnd(3, "0"), 10);
+  if (isNaN(m) || s < 0 || t < 0) return null;
+  if (s > 59) return "SEC";
+  return m * 60000 + s * 1000 + t;
+}
+
+for (const [id, next] of [["mm","ss"],["ss","ms"],["ms",null]]){
+  $(id).addEventListener("input", () => {
+    const el = $(id);
+    el.value = el.value.replace(/\D/g, "");
+    if (next && el.value.length >= el.maxLength) $(next).focus();
+    const ms = typedMs();
+    const err = $("time-err");
+    if (ms === "SEC"){
+      err.textContent = "Seconds must be 0–59"; err.style.display = "block";
+      $("t-preview").innerHTML = "— : — . —";
+    } else if (ms === null){
+      err.style.display = "none"; $("t-preview").innerHTML = "— : — . —";
+    } else {
+      err.style.display = "none";
+      const mm = Math.floor(ms/60000), ss = Math.floor(ms%60000/1000), tt = ms%1000;
+      $("t-preview").innerHTML = "<b>" + mm + ":" + String(ss).padStart(2,"0") +
+        "." + String(tt).padStart(3,"0") + "</b>";
+    }
+  });
+}
+
+async function saveTime(){
+  const ms = typedMs();
+  const err = $("time-err");
+  if (ms === null){ err.textContent = "Enter the full lap time"; err.style.display="block"; return; }
+  if (ms === "SEC"){ return; }
+  if (ms < 20000){ err.textContent = "That is under 20 seconds — check it"; err.style.display="block"; return; }
+  if (ms > 900000){ err.textContent = "That is over 15 minutes — check it"; err.style.display="block"; return; }
+
+  const body = { visitor_id: visitor.id, lap_ms: ms, actor: "rig" + RIG };
+  try {
+    lastRun = await post("/api/runs", body);
+    showResult(lastRun, ms);
+  } catch (e){
+    enqueue("/api/runs", body);              // never lose the lap
+    toast("Saved locally — will sync", true);
+    showResult({ improved: true, best_lap: null, rank: null, total: null,
+                 previous_best: visitor.best_lap }, ms);
+  }
+}
+
+/* ------------------------------------------------------- step 3 result/opt-in */
+function showResult(run, ms){
+  const mm = Math.floor(ms/60000), ss = Math.floor(ms%60000/1000), tt = ms%1000;
+  const lap = mm + ":" + String(ss).padStart(2,"0") + "." + String(tt).padStart(3,"0");
+  const box = $("result");
+  box.className = "result" + (run.improved ? " improved" : "");
+  $("r-head").textContent = run.improved ? "New personal best" : "Not their best";
+  $("r-rank").textContent = run.rank ? "P" + run.rank : "—";
+  $("r-lap").textContent = run.improved ? lap : (run.best_lap || lap);
+  $("r-note").textContent = run.improved
+    ? (run.total ? "of " + run.total + " today" : "saved")
+    : "This run was " + lap + " — keeping their best of " + (run.best_lap || "—");
+
+  $("optin-block").hidden = !!visitor.opted_in;
+  if (visitor.opted_in){
+    $("r-note").textContent += " · already signed up for updates";
+  }
+  setStep(3);
+}
+
+async function saveConsent(){
+  if ($("optin-block").hidden){ finish(); return; }
+  const number = $("phone").value.replace(/\D/g, "");
+  if (!$("consent").checked){ toast("Tick the box to sign up", true); return; }
+  if (number.length < 6){ $("f-phone").classList.add("bad"); return; }
+  $("f-phone").classList.remove("bad");
+
+  const body = { visitor_id: visitor.id, phone: $("cc").value + number,
+                 channel: $("ch").value, consent: true };
+  try {
+    await post("/api/consent", body);
+    toast("Signed up for updates");
+  } catch (e){
+    if (/country code|number/i.test(e.message)){
+      $("phone-err").textContent = e.message;
+      $("f-phone").classList.add("bad");
+      return;
+    }
+    enqueue("/api/consent", body);
+    toast("Saved locally — will sync");
+  }
+  finish();
+}
+
+function finish(){
+  visitor = null; lastRun = null;
+  $("q").value = ""; $("hits").innerHTML = "";
+  $("phone").value = ""; $("consent").checked = false;
+  setStep(1);
+  setTimeout(() => $("q").focus(), 150);
+}
+
+/* --------------------------------------------------------- country prefixes */
+const CODES = [
+  ["+49","Germany"],["+43","Austria"],["+41","Switzerland"],["+420","Czechia"],
+  ["+421","Slovakia"],["+48","Poland"],["+39","Italy"],["+33","France"],
+  ["+34","Spain"],["+31","Netherlands"],["+32","Belgium"],["+44","UK"],
+  ["+353","Ireland"],["+45","Denmark"],["+46","Sweden"],["+47","Norway"],
+  ["+358","Finland"],["+36","Hungary"],["+40","Romania"],["+359","Bulgaria"],
+  ["+385","Croatia"],["+386","Slovenia"],["+30","Greece"],["+351","Portugal"],
+  ["+90","Turkey"],["+380","Ukraine"],["+1","USA / Canada"],["+86","China"],
+  ["+886","Taiwan"],["+82","South Korea"],["+81","Japan"],["+91","India"],
+  ["+972","Israel"],["+65","Singapore"],["+61","Australia"],["+55","Brazil"],
+];
+$("cc").innerHTML = CODES.map(([code, name]) =>
+  '<option value="' + code + '">' + code + "  " + name + "</option>").join("");
+$("cc").value = "+49";
+
+/* Country dropdown for registration (English names). */
+const COUNTRIES = ["Germany","Austria","Switzerland","Czechia","Slovakia","Poland",
+  "Netherlands","Belgium","France","Spain","Italy","Portugal","United Kingdom",
+  "Ireland","Denmark","Sweden","Norway","Finland","Hungary","Romania","Bulgaria",
+  "Croatia","Slovenia","Greece","Turkey","Ukraine","Luxembourg","Estonia","Latvia",
+  "Lithuania","United States","Canada","China","Taiwan","South Korea","Japan",
+  "India","Israel","Singapore","Australia","Brazil","Other"];
+const coSel = document.getElementById("co");
+coSel.innerHTML = '<option value="">Select country…</option>' +
+  COUNTRIES.map(c => '<option value="' + c + '">' + c + '</option>').join("");
+
+/* ------------------------------------------------------------------ start */
+showNet();
+setStep(1);
+runSearch();
+drainQueue();
+</script>
+</body>
+</html>

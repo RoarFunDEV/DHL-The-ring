@@ -1,0 +1,30 @@
+RoarFun Booth — installing on the booth PC
+==========================================
+
+1. Install Python 3.12 from python.org.
+   On Windows, tick "Add Python to PATH" during setup.
+
+2. Copy this whole "booth" folder onto the machine.
+
+3. Install the components. Double-click:
+       Windows:  install.bat
+       macOS:    install.command
+
+4. Start it. Double-click:
+       Windows:  RoarFun Booth.bat
+       macOS:    RoarFun Booth.command
+
+   A window opens. Enter the cloud address and access token once, press
+   "Save settings", then "Start the booth".
+
+5. The window shows an address like  http://192.168.1.40:8000/tablet
+   Type that into each tablet's browser. Add it to the home screen so it
+   opens like an app.
+
+Notes
+-----
+* The tablets must be on the booth's own WiFi, not the hall network.
+* No internet is required. If the uplink is down, the booth keeps working
+  and the cloud mirror simply retries.
+* Visitor data is stored in booth.db next to these files. Back it up at the
+  end of each show day using "Export visitors (CSV)".

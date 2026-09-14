@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "event": "electronica-2026",
+  "updated_at": "2026-11-10T13:42:07Z",
+  "count": 8,
+  "leaderboard": [
+    { "id": "sample-01", "rank": 1, "name": "L. ENGLER", "team": "Alternetivo", "best_lap_ms": 52104, "best_lap": "0:52.104" },
+    { "id": "sample-02", "rank": 2, "name": "T. BOHUNEK", "team": "DBAG", "best_lap_ms": 52890, "best_lap": "0:52.890" },
+    { "id": "sample-03", "rank": 3, "name": "A. NOVAK", "team": "T-Mobile", "best_lap_ms": 53201, "best_lap": "0:53.201" },
+    { "id": "sample-04", "rank": 4, "name": "D. PECL", "team": "Vodafone", "best_lap_ms": 53788, "best_lap": "0:53.788" },
+    { "id": "sample-05", "rank": 5, "name": "M. WEBER", "team": "Siemens", "best_lap_ms": 54332, "best_lap": "0:54.332" },
+    { "id": "sample-06", "rank": 6, "name": "P. SCHMIDT", "team": "Bosch", "best_lap_ms": 54901, "best_lap": "0:54.901" },
+    { "id": "sample-07", "rank": 7, "name": "J. MULLER", "team": "SAP", "best_lap_ms": 55620, "best_lap": "0:55.620" },
+    { "id": "sample-08", "rank": 8, "name": "Z. SVOBODA", "team": "Infineon", "best_lap_ms": 56104, "best_lap": "0:56.104" }
+  ]
+}

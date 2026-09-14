@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop updates — RoarFun</title>
+<style>
+  :root{
+    --bg:#08090B; --panel:#12161d; --line:rgba(255,255,255,.12);
+    --txt:#EEF1F4; --dim:#8C949E; --accent:#E8342A; --ok:#3FB56B;
+    --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
+    border-radius:16px;padding:28px;text-align:center}
+  h1{font-family:var(--cond);font-size:30px;text-transform:uppercase;margin:0 0 10px;line-height:1}
+  p{color:var(--dim);font-size:15px;line-height:1.55;margin:0 0 22px}
+  button{width:100%;padding:15px;font-size:16px;font-weight:600;border:0;border-radius:10px;
+    background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .ok{color:var(--ok)}
+  .err{color:#ff8b84}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <h1>Stop updates</h1>
+  <p>We'll stop sending you leaderboard messages and delete your number.</p>
+  <button id="go">Stop sending me messages</button>
+  <p id="msg" style="margin:16px 0 0"></p>
+</div>
+
+<script>
+const token = new URLSearchParams(location.search).get("t");
+const card = document.getElementById("card");
+
+if (!token){
+  card.innerHTML = '<h1>Link not valid</h1><p>This link is missing its code. ' +
+    'Please use the link from the message we sent you.</p>';
+}
+
+document.getElementById("go")?.addEventListener("click", async () => {
+  const button = document.getElementById("go");
+  const msg = document.getElementById("msg");
+  button.disabled = true; msg.className = ""; msg.textContent = "Stopping…";
+  try{
+    const response = await fetch("/api/stop", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ token })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.detail || "Link not recognised");
+    card.innerHTML = '<h1 class="ok">Done</h1><p>You won\'t receive any more messages ' +
+      'and your number has been deleted.</p>';
+  } catch (err){
+    msg.className = "err"; msg.textContent = err.message;
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

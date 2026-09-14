@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live timing — RoarFun</title>
+<style>
+  :root{
+    --ground:#0b0f14;
+    --surface:#141b24;
+    --line:#1f2937;
+    --text:#e9edf2;
+    --dim:#78879b;
+    --gold:#e3b341;
+    --live:#3fb950;
+    --wait:#d29922;
+    --dead:#f85149;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--ground);color:var(--text);
+    font-family:var(--sans);font-size:15px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px 60px}
+
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0}
+  .event{color:var(--dim);font-family:var(--mono);font-size:13px}
+
+  .state{display:flex;align-items:center;gap:8px;margin:14px 0 22px;
+    color:var(--dim);font-size:13px;font-family:var(--mono)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+  .dot.live{background:var(--live);box-shadow:0 0 0 3px rgba(63,185,80,.15)}
+  .dot.wait{background:var(--wait)}
+  .dot.dead{background:var(--dead)}
+
+  table{width:100%;border-collapse:collapse}
+  th{
+    text-align:left;font-weight:500;font-size:12px;color:var(--dim);
+    padding:0 10px 8px;border-bottom:1px solid var(--line)
+  }
+  th.n,td.n{text-align:right;font-variant-numeric:tabular-nums}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:baseline}
+  tr:last-child td{border-bottom:0}
+
+  .pos{font-family:var(--mono);color:var(--dim);width:44px;text-align:right;font-size:14px}
+  .lead .pos{color:var(--gold)}
+  .name{font-weight:500;letter-spacing:-.01em}
+  .lead .name{font-size:17px}
+  .team{color:var(--dim);font-size:13px;padding-left:10px}
+  .lap{font-family:var(--mono);font-size:15px;width:110px}
+  .gap{font-family:var(--mono);font-size:13px;color:var(--dim);width:90px}
+
+  tr.better td{background:rgba(227,179,65,.12)}
+  @media (prefers-reduced-motion:no-preference){
+    tr td{transition:background .9s ease-out}
+  }
+
+  .empty{padding:56px 10px;color:var(--dim);line-height:1.6}
+  .empty b{display:block;color:var(--text);font-weight:500;margin-bottom:6px}
+
+  footer{margin-top:26px;color:var(--dim);font-size:12px;font-family:var(--mono)}
+  footer a{color:var(--dim)}
+  @media (max-width:560px){ .team,.gap{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Live timing</h1>
+    <span class="event" id="event"></span>
+  </header>
+
+  <div class="state">
+    <span class="dot" id="dot"></span>
+    <span id="state">Connecting…</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="n">Pos</th>
+        <th>Driver</th>
+        <th class="lap">Best lap</th>
+        <th class="gap">Gap</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="empty" id="empty" hidden>
+    <b>Nothing on the board yet.</b>
+    Start the pusher on the booth PC and the first lap will appear here within a few seconds.
+  </div>
+
+  <footer>
+    Refreshes every 5s · <a href="/v1/leaderboard.json">raw JSON feed</a>
+  </footer>
+</div>
+
+<script>
+const REFRESH_MS = 5000;
+const previous = new Map();   // id -> best_lap_ms, for spotting improvements
+let updatedAt = null;
+
+function fmtGap(ms){
+  const s = ms / 1000;
+  return "+" + s.toFixed(3);
+}
+
+function render(data){
+  document.getElementById("event").textContent = data.event || "";
+  const board = data.leaderboard || [];
+  const body = document.getElementById("rows");
+  const empty = document.getElementById("empty");
+
+  empty.hidden = board.length > 0;
+  body.innerHTML = "";
+  if (!board.length) return;
+
+  const leader = board[0].best_lap_ms;
+  for (const entry of board){
+    const tr = document.createElement("tr");
+    if (entry.rank === 1) tr.className = "lead";
+
+    const was = previous.get(entry.id);
+    if (was !== undefined && entry.best_lap_ms < was) tr.classList.add("better");
+    previous.set(entry.id, entry.best_lap_ms);
+
+    tr.innerHTML =
+      '<td class="pos">' + entry.rank + '</td>' +
+      '<td><span class="name"></span><span class="team"></span></td>' +
+      '<td class="lap"></td>' +
+      '<td class="gap"></td>';
+    tr.querySelector(".name").textContent = entry.name;
+    tr.querySelector(".team").textContent = entry.team || "";
+    tr.querySelector(".lap").textContent = entry.best_lap;
+    tr.querySelector(".gap").textContent =
+      entry.rank === 1 ? "" : fmtGap(entry.best_lap_ms - leader);
+    body.appendChild(tr);
+  }
+  requestAnimationFrame(() => {
+    setTimeout(() => document.querySelectorAll("tr.better")
+      .forEach(r => r.classList.remove("better")), 1200);
+  });
+}
+
+function showState(){
+  const dot = document.getElementById("dot");
+  const text = document.getElementById("state");
+  if (!updatedAt){
+    dot.className = "dot wait";
+    text.textContent = "No data received yet";
+    return;
+  }
+  const age = Math.round((Date.now() - updatedAt) / 1000);
+  if (age < 90){
+    dot.className = "dot live";
+    text.textContent = age < 10 ? "Live" : "Live · updated " + age + "s ago";
+  } else if (age < 300){
+    dot.className = "dot wait";
+    text.textContent = "Last update " + age + "s ago";
+  } else {
+    dot.className = "dot dead";
+    const mins = Math.round(age / 60);
+    text.textContent = "Stale · no update for " + mins + " min — check the booth PC";
+  }
+}
+
+async function poll(){
+  try {
+    const response = await fetch("/v1/leaderboard.json");
+    if (response.status === 304){ showState(); return; }
+    const data = await response.json();
+    updatedAt = data.updated_at ? Date.parse(data.updated_at) : null;
+    render(data);
+  } catch (err){
+    document.getElementById("dot").className = "dot dead";
+    document.getElementById("state").textContent = "Cannot reach the service";
+  }
+  showState();
+}
+
+poll();
+setInterval(poll, REFRESH_MS);
+setInterval(showState, 1000);
+</script>
+</body>
+</html>

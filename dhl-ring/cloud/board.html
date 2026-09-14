@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoarFun — Live Lap Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Azeret+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08090B; --panel:rgba(11,13,17,.74);
+    --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.18);
+    --txt:#EEF1F4; --dim:#8C949E; --dimmer:#5B626B;
+    --accent:#E8342A; --gold:#F2C14E; --silver:#C9D2DA; --bronze:#D08B4F;
+    --ok:#3FB56B; --warn:#F2C14E; --field:#15181E;
+    --cond:"Barlow Condensed","Arial Narrow",sans-serif;
+    --mono:"Azeret Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--txt);font-family:var(--cond);
+    overflow:hidden;-webkit-font-smoothing:antialiased}
+
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #bg{position:absolute;inset:0;background:#000 center/cover no-repeat;transition:opacity .4s}
+  /* Keeps the tower readable over a photograph. */
+  #bg::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(120% 90% at 50% 40%,transparent 40%,rgba(0,0,0,.58) 100%)}
+  #bg.empty{background:
+    radial-gradient(80% 60% at 50% 0%,#141922 0%,transparent 60%),
+    linear-gradient(180deg,#0b0e13,#08090b)}
+  #bg.empty::after{display:none}
+
+  #tower{position:relative;z-index:2;width:min(1120px,92vw);max-height:92vh;
+    display:flex;flex-direction:column;background:var(--panel);backdrop-filter:blur(6px);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 24px 80px rgba(0,0,0,.55)}
+  .tower-head{display:flex;align-items:flex-end;justify-content:space-between;
+    gap:16px;padding:22px 30px 16px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-size:15px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--accent);font-weight:600;margin:0 0 4px}
+  h1{font-size:40px;line-height:.98;font-weight:700;letter-spacing:.01em;
+    text-transform:uppercase;margin:0}
+  .stat{text-align:right;white-space:nowrap}
+  .stat .k{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-weight:500;font-size:26px;font-variant-numeric:tabular-nums}
+  .stat .v.best{color:var(--gold)}
+
+  .col-labels{display:grid;grid-template-columns:78px 1fr auto;padding:10px 30px;
+    font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--dimmer);
+    border-bottom:1px solid var(--line)}
+  .col-labels .r{text-align:right}
+
+  #rows-wrap{position:relative;overflow:hidden;flex:1}
+  #rows{will-change:transform}
+  .row{display:grid;grid-template-columns:78px 1fr auto;align-items:center;
+    padding:12px 30px;border-bottom:1px solid var(--line);
+    position:relative;overflow:hidden}
+
+  /* One light sweeps across a row when something about it changed. The tint
+     says what kind of change: white for a personal improvement, gold for a
+     driver arriving on the board, brighter gold for a new leader. */
+  .row::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
+    background:linear-gradient(100deg,transparent 22%,
+      var(--sweep,rgba(242,193,78,.30)) 50%,transparent 78%);
+    background-size:240% 100%}
+  .row.enter::after,.row.improve::after,.row.takeover::after{
+    animation:sweep 1.15s cubic-bezier(.3,0,.2,1) both}
+  .row.improve{--sweep:rgba(255,255,255,.14)}
+  .row.takeover{--sweep:rgba(242,193,78,.52)}
+  @keyframes sweep{
+    0%{background-position:-30% 0;opacity:0}
+    12%{opacity:1}
+    100%{background-position:150% 0;opacity:0}
+  }
+
+  .row.enter{animation:rowin .42s cubic-bezier(.2,.8,.3,1) both}
+  @keyframes rowin{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+
+  .row.improve .time,.row.takeover .time{animation:timepop 1.15s ease-out both;
+    transform-origin:100% 50%}
+  @keyframes timepop{
+    0%{color:var(--gold);transform:scale(1.07)}
+    100%{color:inherit;transform:none}
+  }
+
+  @keyframes fadeflash{0%{opacity:1}100%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){
+    .row.enter{animation:none}
+    .row.enter::after,.row.improve::after,.row.takeover::after{
+      animation:fadeflash 1s ease-out both}
+    .row.improve .time,.row.takeover .time{animation:none}
+  }
+  .pos{font-family:var(--mono);font-weight:700;font-size:30px;font-variant-numeric:tabular-nums;
+    color:var(--dim);position:relative;padding-left:12px}
+  .row.p1 .pos,.row.p2 .pos,.row.p3 .pos{color:var(--txt)}
+  .row.p1 .pos::before,.row.p2 .pos::before,.row.p3 .pos::before{
+    content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:4px;height:60%;border-radius:2px}
+  .row.p1 .pos::before{background:var(--gold)}
+  .row.p2 .pos::before{background:var(--silver)}
+  .row.p3 .pos::before{background:var(--bronze)}
+  .who{min-width:0}
+  .name{font-size:29px;font-weight:600;line-height:1.02;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row.p1 .name{font-size:32px;font-weight:700}
+  .team{font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+  .time{font-family:var(--mono);font-weight:500;font-size:30px;font-variant-numeric:tabular-nums;
+    text-align:right;padding-left:24px}
+  .row.p1 .time{color:var(--gold);font-weight:700}
+
+  #empty{padding:70px 30px;text-align:center;color:var(--dim)}
+  #empty h2{font-size:30px;font-weight:600;color:var(--txt);margin:0 0 8px;text-transform:uppercase}
+  #empty p{font-size:18px;margin:0}
+
+  /* live indicator — quiet by design, loud only when something is wrong */
+  #live{position:fixed;top:16px;right:16px;z-index:20;display:flex;align-items:center;gap:8px;
+    padding:8px 14px;border:1px solid var(--line);border-radius:999px;
+    background:rgba(8,9,11,.6);backdrop-filter:blur(4px);
+    font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+  #live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  #live.stale{border-color:rgba(242,193,78,.5);color:var(--warn)}
+  #live.stale .dot{background:var(--warn)}
+  #live.down{border-color:rgba(232,52,42,.5);color:#ff8b84}
+  #live.down .dot{background:var(--accent)}
+
+  #tools{position:fixed;bottom:16px;right:16px;z-index:20;display:flex;gap:8px;
+    opacity:.28;transition:opacity .2s}
+  #tools:hover{opacity:1}
+  #tools button{width:44px;height:44px;border:1px solid var(--line-strong);
+    background:rgba(8,9,11,.6);color:var(--dim);border-radius:10px;cursor:pointer;
+    font-size:18px;backdrop-filter:blur(4px)}
+  #tools button:hover{color:var(--txt);background:rgba(30,34,42,.85)}
+  #bg-file{display:none}
+  @media (max-width:640px){
+    h1{font-size:28px} .name{font-size:22px} .row.p1 .name{font-size:24px}
+    .time{font-size:22px} .pos{font-size:22px}
+    .row,.col-labels,.tower-head{padding-left:16px;padding-right:16px}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div>
+  <div id="tower">
+    <div class="tower-head">
+      <div>
+        <p class="eyebrow">Lap leaderboard</p>
+        <h1 id="title">Live timing</h1>
+      </div>
+      <div style="display:flex;gap:26px">
+        <div class="stat"><div class="k">Drivers</div><div class="v" id="stat-count">0</div></div>
+        <div class="stat"><div class="k">Best lap</div><div class="v best" id="stat-best">—</div></div>
+      </div>
+    </div>
+    <div class="col-labels"><div>Pos</div><div>Driver</div><div class="r">Lap time</div></div>
+    <div id="rows-wrap">
+      <div id="rows"></div>
+      <div id="empty">
+        <h2>No laps yet</h2>
+        <p>The first result appears here moments after it is set.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="live"><span class="dot"></span><span id="live-text">Live</span></div>
+
+<div id="tools">
+  <button id="btn-bg" title="Choose a background image (this screen only)">▣</button>
+  <button id="btn-bg-clear" title="Remove the background image">⌫</button>
+  <button id="fs" title="Fullscreen">⛶</button>
+</div>
+<input type="file" id="bg-file" accept="image/*">
+
+<script>
+/* Read-only display. Data comes from the public feed on this same service.
+   Options via URL:  ?limit=10                   show only the top N
+                     ?title=Electronica%202026   override the heading
+                     ?bg=<image url>             background for this screen  */
+
+const params    = new URLSearchParams(location.search);
+const LIMIT     = parseInt(params.get("limit") || "0", 10);
+const REFRESH   = 5000;
+
+/* Presentation timings ---------------------------------------------------- */
+const SCROLL_PX_PER_SEC = 16;    // idle cycling speed
+const END_PAUSE_MS      = 2200;  // hold at top and bottom of the cycle
+const SEEK_EASE         = 3.4;   // higher = snappier glide to a new result
+const SEEK_MAX_MS       = 2400;  // never let a glide run longer than this
+const REVEAL_HOLD_MS    = 1700;  // time a highlighted row stays put
+const BETWEEN_MS        = 350;   // gap between two queued results
+const RESUME_PAUSE_MS   = 900;   // beat before idle cycling starts again
+const MAX_REVEALS       = 4;     // more than this in one update: flash in place
+
+const rowsEl   = document.getElementById("rows");
+const wrapEl   = document.getElementById("rows-wrap");
+const emptyEl  = document.getElementById("empty");
+const liveEl   = document.getElementById("live");
+const liveText = document.getElementById("live-text");
+
+const previous = new Map();   // id -> best_lap_ms as of the last paint
+let updatedAt = null, signature = "";
+let leaderId = null;          // who held P1 last time
+let primed = false;           // no animation on the very first paint
+let busy = false;             // a reveal sequence is running
+let pendingData = null;       // feed that arrived mid-reveal, applied afterwards
+
+const pad = (n, w) => String(n).padStart(w, "0");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* ------------------------------------------------------------------ scrolling
+   One rAF loop for the life of the page, handling both the idle cycle and the
+   glide to a specific row. Never restarted, so scroll timers cannot accumulate.
+   Time-based rather than tick-based, so a slow booth PC moves at the same speed
+   as a fast one.                                                             */
+let scrollY = 0, scrollDir = -1, pauseUntil = 0, lastTs = 0;
+let seekTo = null, seekDone = null, seekStarted = 0;
+
+const overflow = () => Math.max(0, rowsEl.scrollHeight - wrapEl.clientHeight);
+const clampY = y => Math.min(0, Math.max(-overflow(), y));
+
+function paintScroll(){ rowsEl.style.transform = "translateY(" + scrollY + "px)"; }
+
+function finishSeek(){
+  seekTo = null;
+  const done = seekDone; seekDone = null;
+  if (done) done();
+}
+
+function scrollLoop(ts){
+  requestAnimationFrame(scrollLoop);
+  const dt = lastTs ? Math.min(64, ts - lastTs) : 0;   // ignore gaps after a sleeping tab
+  lastTs = ts;
+
+  const over = overflow();
+  if (over <= 4){                       // whole field fits: nothing to scroll
+    if (scrollY !== 0){ scrollY = 0; paintScroll(); }
+    if (seekTo !== null) finishSeek();
+    return;
+  }
+  if (scrollY < -over){ scrollY = -over; scrollDir = 1; }   // list shrank
+
+  if (seekTo !== null){                 // gliding to a result
+    const goal = clampY(seekTo);
+    const diff = goal - scrollY;
+    if (Math.abs(diff) < 0.7 || ts - seekStarted > SEEK_MAX_MS){
+      scrollY = goal; paintScroll(); finishSeek();
+    } else {
+      scrollY += diff * (1 - Math.exp(-SEEK_EASE * dt / 1000));
+      paintScroll();
+    }
+    return;
+  }
+
+  if (busy) return;                     // frozen while a row is highlighted
+  if (ts < pauseUntil) return;
+
+  scrollY += scrollDir * SCROLL_PX_PER_SEC * dt / 1000;
+  if (-scrollY >= over){ scrollY = -over; scrollDir = 1; pauseUntil = ts + END_PAUSE_MS; }
+  if (scrollY >= 0){ scrollY = 0; scrollDir = -1; pauseUntil = ts + END_PAUSE_MS; }
+  paintScroll();
+}
+requestAnimationFrame(scrollLoop);
+
+function glideTo(y){
+  return new Promise(resolve => {
+    seekTo = y; seekDone = resolve; seekStarted = performance.now();
+  });
+}
+
+/* ------------------------------------------------------------------- reveals
+   A new or improved time is announced rather than just appearing: the board
+   stops cycling, brings the row into view, then plays its highlight. Several
+   results arriving in one update are shown one at a time, in finishing order,
+   so a burst does not turn into a single unreadable flash.                   */
+async function revealAll(events){
+  busy = true;
+  for (const ev of events){
+    const row = rowsEl.querySelector('[data-id="' + ev.id + '"]');
+    if (!row) continue;
+
+    // If it is already comfortably on screen, skip the glide and just play it.
+    const rowTop = row.offsetTop + scrollY;
+    const fullyVisible = rowTop >= 8 && rowTop + row.offsetHeight <= wrapEl.clientHeight - 8;
+    if (!fullyVisible){
+      await glideTo(-(row.offsetTop - (wrapEl.clientHeight - row.offsetHeight) / 2));
+    }
+
+    row.classList.add(ev.type);
+    await wait(REVEAL_HOLD_MS);
+    if (ev !== events[events.length - 1]) await wait(BETWEEN_MS);
+  }
+  busy = false;
+  scrollDir = -1;
+  pauseUntil = performance.now() + RESUME_PAUSE_MS;
+
+  if (pendingData){ const d = pendingData; pendingData = null; apply(d); }
+}
+
+/* --------------------------------------------------------------------- paint */
+function apply(data){
+  const board = LIMIT > 0 ? data.leaderboard.slice(0, LIMIT) : data.leaderboard;
+
+  document.getElementById("title").textContent =
+    params.get("title") || "DHL The Ring 10th edition";
+  document.getElementById("stat-count").textContent = data.count || 0;
+  document.getElementById("stat-best").textContent = board.length ? board[0].best_lap : "—";
+  emptyEl.style.display = board.length ? "none" : "block";
+
+  const next = board.map(e => e.id + e.best_lap_ms).join("|");
+  if (next === signature) return;       // nothing moved: leave the DOM alone
+  signature = next;
+
+  const newLeader = board.length ? board[0].id : null;
+  const takeover = primed && newLeader && newLeader !== leaderId;
+  leaderId = newLeader;
+
+  const events = [];
+  rowsEl.innerHTML = board.map(e => {
+    if (primed){
+      const was = previous.get(e.id);
+      if (was === undefined)        events.push({ id: e.id, type: "enter" });
+      else if (e.best_lap_ms < was) events.push({ id: e.id, type: "improve" });
+      if (takeover && e.rank === 1){
+        // Upgrade this driver's event to a takeover, or add one if the lead
+        // changed without their time moving (e.g. the old leader was removed).
+        const found = events.find(x => x.id === e.id);
+        if (found) found.type = "takeover";
+        else events.push({ id: e.id, type: "takeover" });
+      }
+    }
+    return '<div class="row' + (e.rank <= 3 ? " p" + e.rank : "") + '" data-id="' + esc(e.id) + '">' +
+      '<div class="pos">' + pad(e.rank, 2) + '</div>' +
+      '<div class="who"><div class="name">' + esc(e.name) + '</div>' +
+        (e.team ? '<div class="team">' + esc(e.team) + '</div>' : '') + '</div>' +
+      '<div class="time">' + esc(e.best_lap) + '</div>' +
+    '</div>';
+  }).join("");
+
+  // Diff against the whole field, not the ?limit= slice, so a driver dropping
+  // off the visible top ten and climbing back is not treated as a new arrival.
+  previous.clear();
+  for (const e of data.leaderboard) previous.set(e.id, e.best_lap_ms);
+  primed = true;
+
+  if (events.length > MAX_REVEALS){
+    // A burst this big would hold the board hostage for a minute. Flash them
+    // all where they stand and let the cycle carry on.
+    for (const ev of events){
+      const row = rowsEl.querySelector('[data-id="' + ev.id + '"]');
+      if (row) row.classList.add(ev.type);
+    }
+  } else if (events.length){
+    revealAll(events);
+  }
+}
+
+/* --------------------------------------------------------------------- state */
+function showState(){
+  if (!updatedAt){
+    liveEl.className = "stale"; liveText.textContent = "Waiting"; return;
+  }
+  const age = Math.round((Date.now() - updatedAt) / 1000);
+  if (age < 90){ liveEl.className = ""; liveText.textContent = "Live"; }
+  else if (age < 300){ liveEl.className = "stale"; liveText.textContent = age + "s ago"; }
+  else { liveEl.className = "down"; liveText.textContent = Math.round(age / 60) + " min ago"; }
+}
+
+async function poll(){
+  try{
+    // No "no-store" here: the browser keeps its copy and revalidates with the
+    // server's ETag, so an unchanged board costs an empty 304 rather than a
+    // full re-download. Ten screens polling all day stay in the kilobytes.
+    const response = await fetch("/v1/leaderboard.json");
+    if (response.status === 304) { showState(); return; }   // nothing changed
+    const data = await response.json();
+    updatedAt = data.updated_at ? Date.parse(data.updated_at) : null;
+    // Rebuilding the rows mid-reveal would destroy the element being animated,
+    // so hold the newest feed and apply it once the sequence finishes.
+    if (busy) pendingData = data; else apply(data);
+  } catch (err){
+    liveEl.className = "down"; liveText.textContent = "Offline";
+  }
+  showState();
+}
+
+poll();
+setInterval(poll, REFRESH);
+setInterval(showState, 1000);
+
+
+document.getElementById("fs").onclick = () =>
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+
+/* ---------------------------------------------------------------- background
+   Three sources, in priority order:
+     1. ?bg=<url>            explicit per-screen, wins over everything
+     2. an image picked on this screen (kept in this browser only)
+     3. /assets/background.jpg committed to the repo — the shared default
+   Nothing found: the dark gradient stays.                                    */
+const BG_KEY = "roarfun_board_bg";
+const bgEl = document.getElementById("bg");
+const bgFile = document.getElementById("bg-file");
+
+function setBg(src){
+  if (!src){ bgEl.classList.add("empty"); bgEl.style.backgroundImage = ""; return; }
+  const probe = new Image();
+  probe.onload = () => {
+    bgEl.style.backgroundImage = 'url("' + src.replace(/"/g, '\\"') + '")';
+    bgEl.classList.remove("empty");
+  };
+  probe.onerror = () => bgEl.classList.add("empty");
+  probe.src = src;
+}
+
+function storedBg(){
+  try { return localStorage.getItem(BG_KEY); } catch (e) { return null; }
+}
+
+setBg(params.get("bg") || storedBg() || "/assets/background.jpg");
+
+document.getElementById("btn-bg").onclick = () => bgFile.click();
+bgFile.onchange = () => {
+  const file = bgFile.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    setBg(reader.result);
+    try { localStorage.setItem(BG_KEY, reader.result); } catch (e) {}
+  };
+  reader.readAsDataURL(file);
+  bgFile.value = "";
+};
+document.getElementById("btn-bg-clear").onclick = () => {
+  try { localStorage.removeItem(BG_KEY); } catch (e) {}
+  setBg(params.get("bg") || "/assets/background.jpg");
+};
+
+poll();
+setInterval(poll, REFRESH);
+setInterval(showState, 1000);
+</script>
+</body>
+</html>

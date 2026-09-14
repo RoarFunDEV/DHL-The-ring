@@ -1,0 +1,8 @@
+{
+  "cloud": "https://dhl.roarfun.live",
+  "token": "Roarfun123*",
+  "event": "dhl-the-ring",
+  "pin": "1234",
+  "port": "8000",
+  "mirror": true
+}

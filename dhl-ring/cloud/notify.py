@@ -46,7 +46,7 @@ DRY_RUN = not (TWILIO_SID and TWILIO_TOKEN
 
 # Suppression rules — every one of these exists to stop a real failure mode.
 COOLDOWN_SEC = int(os.getenv("NOTIFY_COOLDOWN_SEC", "600"))    # max 1 msg per person per 10 min
-GRACE_SEC = int(os.getenv("NOTIFY_GRACE_SEC", "10"))          # silence while they are still driving
+GRACE_SEC = int(os.getenv("NOTIFY_GRACE_SEC", "180"))          # silence while they are still driving
 GAP_SEC = int(os.getenv("NOTIFY_GAP_SEC", "300"))              # after an outage, rebaseline, don't replay
 MIN_DROP = int(os.getenv("NOTIFY_MIN_DROP", "1"))              # places lost before it is worth a message
 TOP_N = int(os.getenv("NOTIFY_TOP_N", "0"))                    # 0 = alert everyone; 10 = only the top ten
@@ -57,6 +57,10 @@ PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")                    # E.164, e.g. +42
 # An alphanumeric sender ID cannot receive replies, so "reply STOP" is not an
 # option in Europe — the link is the only working opt-out.
 PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
+
+# "link" (default), "text" (no URL — avoids carrier URL filtering), or "none".
+OPTOUT_STYLE = os.getenv("OPTOUT_STYLE", "link").lower()
+OPTOUT_TEXT = os.getenv("OPTOUT_TEXT", " Tell our staff to stop updates.")
 
 
 def mask(phone: str) -> str:
@@ -310,6 +314,7 @@ def config() -> dict:
     return {
         "dry_run": DRY_RUN,
         "manual_cooldown": Engine.MANUAL_COOLDOWN,
+        "optout_style": OPTOUT_STYLE,
         "sender": ("messaging service " + TWILIO_SERVICE_SID[:8] + "…") if TWILIO_SERVICE_SID
                   else (TWILIO_FROM or "not configured"),
         "whatsapp": TWILIO_WHATSAPP_FROM or "not configured",
@@ -326,7 +331,24 @@ def valid_phone(phone: str) -> bool:
 
 
 def opt_out(sub: "Subscriber | None") -> str:
-    """The opt-out fragment appended to every message."""
+    """
+    The opt-out fragment appended to every message.
+
+    Some carriers (confirmed on Slovak networks with an unregistered
+    alphanumeric sender) filter any SMS containing a URL — the message is
+    accepted by Twilio and then blocked before the handset, showing as
+    error 30007. Setting OPTOUT_STYLE=text drops the link and uses a plain
+    instruction instead, so messages get through.
+
+    A link is the better opt-out and should be restored once the sender ID is
+    registered for the destination country. The text form is a deliberate
+    short-term trade for a single private event where consent was given in
+    person minutes earlier.
+    """
+    if OPTOUT_STYLE == "none":
+        return ""
+    if OPTOUT_STYLE == "text":
+        return OPTOUT_TEXT
     if sub and sub.token and PUBLIC_URL:
         return f" Stop: {PUBLIC_URL}/stop?t={sub.token}"
     if sub and sub.token:
@@ -336,11 +358,9 @@ def opt_out(sub: "Subscriber | None") -> str:
 
 def welcome_text(name: str, rank: int | None, total: int | None,
                  sub: "Subscriber | None" = None) -> str:
-    where = f" You're currently #{rank} of {total}." if rank else ""
-    return (
-        f"Thanks {name} — you're on the DHL The Ring leaderboard.{where}"
-        f" We'll text you your position during the event.{opt_out(sub)}"
-    )
+    where = f" You're #{rank} of {total}." if rank else ""
+    return (f"Thanks {name} — you're on the DHL The Ring leaderboard.{where}"
+            f"{opt_out(sub)}")
 
 
 def position_text(rank: int, total: int, lap: str, sub: "Subscriber | None" = None) -> str:

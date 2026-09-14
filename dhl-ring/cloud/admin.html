@@ -344,6 +344,7 @@ function renderRules(cfg, tools){
     ["cooldown", cfg.cooldown_sec + "s"], ["grace", cfg.grace_sec + "s"],
     ["outage gap", cfg.gap_sec + "s"], ["min drop", cfg.min_drop + " place"],
     ["range", cfg.top_n ? "top " + cfg.top_n : "everyone"],
+    ["opt-out style", cfg.optout_style || "link"],
   ].map(([k,v]) => '<span>' + esc(k) + ": " + esc(v) + '</span>').join("");
   $("cfg-note").textContent =
     "Grace keeps the system quiet while a driver is still at the rig. Cooldown caps how "

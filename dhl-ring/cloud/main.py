@@ -344,6 +344,7 @@ async def sync_subscribers(payload: SubscriberSync) -> dict:
 
     incoming = {s.visitor_id: s for s in payload.subscribers}
     added = 0
+    welcomed: list = []
     for visitor_id, sub in incoming.items():
         existing = notify.engine.subscribers.get(visitor_id)
         if existing:
@@ -351,20 +352,40 @@ async def sync_subscribers(payload: SubscriberSync) -> dict:
             existing.channel = sub.channel
             continue
         entry = ranks.get(visitor_id)
-        notify.engine.subscribe(
+        new_sub = notify.engine.subscribe(
             visitor_id, sub.phone,
             rank=entry["rank"] if entry else None,
             lap_ms=entry["best_lap_ms"] if entry else None,
             channel=sub.channel,
         )
         added += 1
+        # Welcome the driver who just opted in on the tablet. Only fires for a
+        # genuinely NEW subscriber — a re-sync of the same list hits the
+        # "existing" branch above, so nobody is ever welcomed twice.
+        welcomed.append((new_sub, entry))
 
     # Someone removed at the booth (withdrawn consent) stops receiving messages.
     removed = [k for k in notify.engine.subscribers if k not in incoming]
     for key in removed:
         notify.engine.unsubscribe(key)
 
-    return {"ok": True, "total": len(notify.engine.subscribers),
+    # Send the welcomes after the registry is settled. A send failure must never
+    # make the booth's sync look failed — the opt-in itself is already recorded.
+    sent = 0
+    for new_sub, entry in welcomed:
+        try:
+            await notify.engine.send(
+                new_sub.phone,
+                notify.welcome_text(entry["name"] if entry else "driver",
+                                    entry["rank"] if entry else None,
+                                    len(board) if entry else None,
+                                    new_sub),
+                "welcome", new_sub.channel)
+            sent += 1
+        except Exception as exc:                       # noqa: BLE001
+            print(f"[warn] welcome SMS failed for {new_sub.entry_id}: {exc}")
+
+    return {"ok": True, "total": len(notify.engine.subscribers), "welcomed": sent,
             "added": added, "removed": len(removed)}
 
 

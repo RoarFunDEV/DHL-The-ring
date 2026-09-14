@@ -46,7 +46,7 @@ DRY_RUN = not (TWILIO_SID and TWILIO_TOKEN
 
 # Suppression rules — every one of these exists to stop a real failure mode.
 COOLDOWN_SEC = int(os.getenv("NOTIFY_COOLDOWN_SEC", "600"))    # max 1 msg per person per 10 min
-GRACE_SEC = int(os.getenv("NOTIFY_GRACE_SEC", "0"))          # silence while they are still driving
+GRACE_SEC = int(os.getenv("NOTIFY_GRACE_SEC", "180"))          # silence while they are still driving
 GAP_SEC = int(os.getenv("NOTIFY_GAP_SEC", "300"))              # after an outage, rebaseline, don't replay
 MIN_DROP = int(os.getenv("NOTIFY_MIN_DROP", "1"))              # places lost before it is worth a message
 TOP_N = int(os.getenv("NOTIFY_TOP_N", "0"))                    # 0 = alert everyone; 10 = only the top ten

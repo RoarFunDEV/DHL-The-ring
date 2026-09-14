@@ -19,3 +19,7 @@ at,kind,visitor_id,first_name,surname,country,lap,detail
 2026-09-14T20:03:25Z,lap,74af6e21-b205-45ec-a416-95dc7ac321ca,,,,12:22.233,
 2026-09-14T20:08:33Z,register,fc1a5106-a627-4ab9-b719-e081018b4694,David,Bako,Slovakia,,
 2026-09-14T20:08:38Z,lap,fc1a5106-a627-4ab9-b719-e081018b4694,,,,1:23.222,
+2026-09-14T20:37:53Z,register,bfd192d5-ddb8-48d3-8525-a868a386450b,David,Bako,Slovakia,,
+2026-09-14T20:38:00Z,lap,bfd192d5-ddb8-48d3-8525-a868a386450b,,,,12:21.233,
+2026-09-14T20:43:41Z,register,0622dac3-c1a0-4346-a10a-4dc8896001d5,David,Bako,Slovakia,,
+2026-09-14T20:43:48Z,lap,0622dac3-c1a0-4346-a10a-4dc8896001d5,,,,1:21.232,

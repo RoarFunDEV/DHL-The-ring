@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFCC00">
+<title>DHL The Ring — Live Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Azeret+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --yellow:#FFCC00;
+    --panel:rgba(255,255,255,.86);
+    --line:rgba(0,0,0,.10);
+    --txt:#111111; --dim:#555555; --dimmer:#8A8A8A;
+    --accent:#D40511;
+    --gold:#B8860B; --silver:#8A8A8A; --bronze:#A0632B;
+    --ok:#2F9E5B;
+    --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+    --mono:"Azeret Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{background:var(--yellow)}
+  body{margin:0;background:var(--yellow);color:var(--txt);font-family:var(--cond);
+    -webkit-font-smoothing:antialiased;
+    /* manual scrolling, smooth on touch */
+    -webkit-overflow-scrolling:touch}
+
+  .wrap{max-width:820px;margin:0 auto;padding:14px 12px 40px;
+    padding-top:calc(14px + env(safe-area-inset-top))}
+
+  /* ---------- header ---------- */
+  header{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;margin-bottom:10px}
+  .eyebrow{font-size:12px;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--accent);font-weight:600;margin:0 0 3px}
+  h1{font-size:clamp(24px,6.5vw,38px);line-height:1;font-weight:700;
+    text-transform:uppercase;margin:0 0 12px}
+  .stats{display:flex;gap:22px;flex-wrap:wrap}
+  .stat .k{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-weight:600;
+    font-size:clamp(17px,4.6vw,24px);font-variant-numeric:tabular-nums;margin-top:1px}
+  .stat .v.best{color:var(--gold)}
+  .live{margin-left:auto;display:flex;align-items:center;gap:6px;align-self:flex-end;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .live .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .live.stale .dot{background:#D8A13A} .live.stale{color:#8a6a1f}
+  .live.down .dot{background:var(--accent)} .live.down{color:var(--accent)}
+
+  /* ---------- search ---------- */
+  .find{position:relative;margin-bottom:10px}
+  .find input{width:100%;padding:13px 40px 13px 15px;font-size:16px;  /* 16px: iOS won't zoom */
+    font-family:inherit;border-radius:12px;border:1px solid var(--line);
+    background:var(--panel);color:var(--txt)}
+  .find input:focus{outline:none;border-color:var(--accent)}
+  .find input::placeholder{color:var(--dimmer)}
+  .find .clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    border:0;background:none;color:var(--dim);font-size:22px;width:34px;height:34px;
+    cursor:pointer;display:none}
+  .find.has .clear{display:block}
+
+  /* ---------- board ---------- */
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden}
+  .cols{display:grid;grid-template-columns:44px 1fr auto;gap:10px;
+    padding:9px 14px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--dimmer);border-bottom:1px solid var(--line)}
+  .cols .r{text-align:right}
+
+  .row{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;
+    padding:11px 14px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .pos{font-family:var(--mono);font-weight:700;font-size:clamp(15px,4vw,19px);
+    font-variant-numeric:tabular-nums;color:var(--dim);position:relative;padding-left:9px}
+  .row.p1 .pos,.row.p2 .pos,.row.p3 .pos{color:var(--txt)}
+  .row.p1 .pos::before,.row.p2 .pos::before,.row.p3 .pos::before{content:"";
+    position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:3px;height:64%;border-radius:2px}
+  .row.p1 .pos::before{background:var(--gold)}
+  .row.p2 .pos::before{background:var(--silver)}
+  .row.p3 .pos::before{background:var(--bronze)}
+
+  .who{min-width:0}
+  .name{font-size:clamp(16px,4.4vw,22px);font-weight:600;text-transform:uppercase;
+    line-height:1.12;overflow-wrap:anywhere}
+  .row.p1 .name{font-weight:700}
+  .team{font-size:clamp(10px,2.8vw,12px);letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);margin-top:2px;overflow-wrap:anywhere}
+  .time{font-family:var(--mono);font-weight:600;font-size:clamp(15px,4.2vw,21px);
+    font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .row.p1 .time{color:var(--gold);font-weight:700}
+  mark{background:rgba(212,5,17,.16);color:inherit;border-radius:3px;padding:0 2px}
+
+  .empty{padding:40px 16px;text-align:center;color:var(--dim)}
+  .empty b{display:block;color:var(--txt);font-size:19px;margin-bottom:5px;
+    text-transform:uppercase}
+  footer{text-align:center;color:rgba(0,0,0,.45);font-size:11px;
+    letter-spacing:.14em;text-transform:uppercase;margin-top:14px;
+    padding-bottom:env(safe-area-inset-bottom)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Lap leaderboard</p>
+    <h1 id="title">DHL The Ring 10th edition</h1>
+    <div class="stats">
+      <div class="stat"><div class="k">Drivers</div><div class="v" id="s-count">—</div></div>
+      <div class="stat"><div class="k">Best lap</div><div class="v best" id="s-best">—</div></div>
+      <div class="live" id="live"><span class="dot"></span><span id="live-text">Live</span></div>
+    </div>
+  </header>
+
+  <div class="find" id="find">
+    <input type="search" id="q" placeholder="Find your name or country…"
+           autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <button class="clear" id="clear" aria-label="Clear">×</button>
+  </div>
+
+  <div class="board">
+    <div class="cols"><div>Pos</div><div>Driver</div><div class="r">Lap time</div></div>
+    <div id="rows"></div>
+    <div class="empty" id="empty" hidden><b>No laps yet</b>The first result appears here shortly.</div>
+  </div>
+
+  <footer>Updates automatically</footer>
+</div>
+
+<script>
+/* Public leaderboard, phone first. Everyone is listed and the page scrolls
+   normally — no auto-scrolling, because people read this in their hand. */
+const REFRESH = 15000;
+const rowsEl  = document.getElementById("rows");
+const emptyEl = document.getElementById("empty");
+const liveEl  = document.getElementById("live");
+const liveTx  = document.getElementById("live-text");
+const qEl     = document.getElementById("q");
+const findEl  = document.getElementById("find");
+
+let board = [], updatedAt = null, signature = "", filter = "";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const pad = n => String(n).padStart(2, "0");
+
+function mark(text, term){
+  const safe = esc(text);
+  if (!term) return safe;
+  const i = text.toLowerCase().indexOf(term);
+  if (i < 0) return safe;
+  return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + term.length)) +
+         "</mark>" + esc(text.slice(i + term.length));
+}
+
+function render(){
+  const term = filter.trim().toLowerCase();
+  const shown = term
+    ? board.filter(e => (e.name + " " + (e.team || "")).toLowerCase().includes(term))
+    : board;
+
+  emptyEl.hidden = shown.length > 0;
+  if (!shown.length){
+    rowsEl.innerHTML = "";
+    emptyEl.innerHTML = board.length
+      ? "<b>No match</b>Nobody on the board matches that."
+      : "<b>No laps yet</b>The first result appears here shortly.";
+    return;
+  }
+
+  rowsEl.innerHTML = shown.map(e =>
+    '<div class="row' + (e.rank <= 3 ? " p" + e.rank : "") + '">' +
+      '<div class="pos">' + pad(e.rank) + '</div>' +
+      '<div class="who"><div class="name">' + mark(e.name, term) + '</div>' +
+        (e.team ? '<div class="team">' + mark(e.team, term) + '</div>' : '') + '</div>' +
+      '<div class="time">' + esc(e.best_lap) + '</div>' +
+    '</div>').join("");
+}
+
+function showState(){
+  if (!updatedAt){ liveEl.className = "live stale"; liveTx.textContent = "Waiting"; return; }
+  const age = Math.round((Date.now() - updatedAt) / 1000);
+  if (age < 120){ liveEl.className = "live"; liveTx.textContent = "Live"; }
+  else if (age < 600){ liveEl.className = "live stale";
+    liveTx.textContent = Math.round(age / 60) + " min ago"; }
+  else { liveEl.className = "live down";
+    liveTx.textContent = Math.round(age / 60) + " min ago"; }
+}
+
+async function poll(){
+  try{
+    const r = await fetch("/v1/leaderboard.json");
+    if (r.status === 304){ showState(); return; }
+    const data = await r.json();
+    updatedAt = data.updated_at ? Date.parse(data.updated_at) : Date.now();
+    board = data.leaderboard || [];
+    document.getElementById("s-count").textContent = data.count || 0;
+    document.getElementById("s-best").textContent = board.length ? board[0].best_lap : "—";
+
+    /* Only touch the list when something actually changed. Re-rendering under
+       someone's finger while they scroll is the quickest way to lose their place. */
+    const next = board.map(e => e.id + e.best_lap_ms).join("|");
+    if (next !== signature){ signature = next; render(); }
+  }catch(e){
+    liveEl.className = "live down"; liveTx.textContent = "Offline";
+  }
+  showState();
+}
+
+qEl.addEventListener("input", () => {
+  filter = qEl.value;
+  findEl.classList.toggle("has", filter.length > 0);
+  render();
+});
+document.getElementById("clear").onclick = () => {
+  qEl.value = ""; filter = ""; findEl.classList.remove("has"); render(); qEl.focus();
+};
+
+poll();
+setInterval(poll, REFRESH);
+setInterval(showState, 5000);
+</script>
+</body>
+</html>

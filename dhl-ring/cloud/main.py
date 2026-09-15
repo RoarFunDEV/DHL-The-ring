@@ -519,10 +519,26 @@ async def board() -> HTMLResponse:
 
 
 @app.get("/")
-async def root() -> dict:
+async def root() -> HTMLResponse:
+    """
+    The public leaderboard, served at the bare domain so the URL on a QR code is
+    as short as possible. Phone first: everyone listed, normal scrolling, search.
+    The service signpost that used to live here moved to /info.
+    """
+    page = Path(__file__).with_name("public.html")
+    if not page.exists():
+        raise HTTPException(status_code=404, detail="public page not deployed")
+    return HTMLResponse(page.read_text(encoding="utf-8"),
+                        headers={"Cache-Control": "public, max-age=60"})
+
+
+@app.get("/info")
+async def info() -> dict:
     return {
-        "service": "orbweaver-live-leaderboard",
+        "service": "dhl-the-ring-leaderboard",
+        "public": "/",
         "feed": "/v1/leaderboard.json",
+        "wall": "/board",
         "monitor": "/monitor",
-        "board": "/board",
+        "admin": "/admin",
     }
